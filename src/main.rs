@@ -156,13 +156,8 @@ fn main() {
         xdim: 200,
         ydim: 200,
     };
-
-    println!("Number of triangles: {}", &tris.len());
-
-    let mut zbuffer = vec![vec![Depthbuffer::default(); display.xdim]; display.ydim];
-
     // TODO: rotate world or camera
-
+    println!("Number of triangles: {}", &tris.len());
     // position camera. Currently the camera is fixed to the x-y plane. One can move it in
     // the x-y plane and map the pixels to a larger or smaller region of worldspace.
     let camera_zoom = 1.5;
@@ -171,15 +166,16 @@ fn main() {
 
     println!("{:?}", tris[0]);
 
+    let mut zbuffer = vec![vec![Depthbuffer::default(); display.xdim]; display.ydim];
     for tri in tris {
-        for x_pix in 0..display.xdim {
-            for y_pix in 0..display.ydim {
+        for (x_pix, zbuffer_line) in zbuffer.iter_mut().enumerate() {
+            for (y_pix, zbuffer_pixel) in zbuffer_line.iter_mut().enumerate() {
                 let x = (x_pix as f32 + camerashift_x) * camera_zoom;
                 let y = (y_pix as f32 + camerashift_y) * camera_zoom;
 
                 if let Some(z_and_value) = tri_interpolate(&tri, (x, y)) {
-                    if zbuffer[x_pix][y_pix].z > z_and_value.z {
-                        zbuffer[x_pix][y_pix] = z_and_value
+                    if zbuffer_pixel.z > z_and_value.z {
+                        *zbuffer_pixel = z_and_value
                     }
                 }
             }
