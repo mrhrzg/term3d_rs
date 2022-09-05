@@ -2,7 +2,7 @@
 View 3D models in the terminal.
 
 ```bash
-> cargo run [OBJ-file-name]
+> cargo run --release [OBJ-file-name]
 
 ```
 

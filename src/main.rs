@@ -204,9 +204,10 @@ fn main() {
             }
         }
     }
-    // display the data
+    // write the data to file
     write_to_ppm(display, zbuffer.clone());
 
+    // display the data
     for zbuffer_line in zbuffer.iter_mut() {
         for zbuffer_pixel in zbuffer_line.iter_mut() {
             print!(
