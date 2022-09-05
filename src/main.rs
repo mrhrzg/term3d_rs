@@ -19,7 +19,7 @@ struct Depthbuffer {
 impl Default for Depthbuffer {
     fn default() -> Self {
         Depthbuffer {
-            z: f32::INFINITY,
+            z: f32::NEG_INFINITY,
             value: [0.0, 0.0, 0.0],
         }
     }
@@ -70,7 +70,7 @@ fn barymetric(tri: &Triangle, pixel: (f32, f32)) -> Vec<f32> {
 fn tri_interpolate(tri: &Triangle, pixel: (f32, f32)) -> Option<Depthbuffer> {
     if !pixel_in_triangle(tri, pixel) {
         Some(Depthbuffer {
-            z: 9999.0,
+            z: -9999.0,
             value: [1.0_f32, 1.0_f32, 1.0_f32],
         }) // white background
            //None
@@ -100,12 +100,14 @@ fn tri_interpolate(tri: &Triangle, pixel: (f32, f32)) -> Option<Depthbuffer> {
             .map(|(l, n)| l * n[2])
             .sum::<f32>()
             / 3_f32;
+        /*
         print!("Lambdas {:?}", lambdas);
         print!(" Normals {:?}", tri.normals);
         print!(" z:{:?}", distance);
         print!(" nx:{:?}", nx);
         print!(" ny:{:?}", ny);
         println!(" nz:{:?}", nz);
+        */
         Some(Depthbuffer {
             z: distance,
             value: [-nx, -ny, -nz],
@@ -130,9 +132,9 @@ fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
             .map(|Depthbuffer { z: _, value }| {
                 format!(
                     "{} {} {}   ",
-                    (value[0] * 255.0) as u8,
-                    (value[1] * 255.0) as u8,
-                    (value[2] * 255.0) as u8,
+                    (value[0] * 255.0 * 2.0) as u8,
+                    (value[1] * 255.0 * 2.0) as u8,
+                    (value[2] * 255.0 * 2.0) as u8,
                 )
             })
             .collect::<String>();
@@ -141,10 +143,10 @@ fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
 }
 
 fn main() {
-    let input = BufReader::new(File::open("obj_cube3.obj").unwrap());
-    let camera_zoom = 1.8;
-    let camerashift_x = -100.0;
-    let camerashift_y = -100.0;
+    let input = BufReader::new(File::open("term3d_sample_obj_5.obj").unwrap());
+    let camera_zoom = 1.8 / 4.0;
+    let camerashift_x = -100.0 * 4.0;
+    let camerashift_y = -100.0 * 4.0;
 
     let obj: Obj = load_obj(input).unwrap();
     // println!( "Vertices, {:?} items: {:?}", obj.vertices.len(), obj.vertices);
@@ -165,8 +167,8 @@ fn main() {
     }
 
     let display = Display {
-        xdim: 200,
-        ydim: 200,
+        xdim: 200 * 4,
+        ydim: 200 * 4,
     };
     // TODO: rotate world or camera
     println!("Number of triangles: {}", &tris.len());
@@ -182,7 +184,7 @@ fn main() {
                 let y = (y_pix as f32 + camerashift_y) * camera_zoom;
 
                 if let Some(z_and_value) = tri_interpolate(&tri, (x, y)) {
-                    if zbuffer_pixel.z > z_and_value.z {
+                    if zbuffer_pixel.z < z_and_value.z {
                         *zbuffer_pixel = z_and_value
                     }
                 }
