@@ -1,8 +1,10 @@
 use obj::{load_obj, Obj};
+use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Write;
 //use tui;
+use ansi_term::Colour::RGB;
 
 #[derive(Debug)]
 struct Display {
@@ -143,10 +145,21 @@ fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
 }
 
 fn main() {
-    let input = BufReader::new(File::open("term3d_sample_obj_5.obj").unwrap());
-    let camera_zoom = 1.8 / 4.0;
-    let camerashift_x = -100.0 * 4.0;
-    let camerashift_y = -100.0 * 4.0;
+    let args: Vec<String> = env::args().collect();
+    println!(
+        "This is in in color: {}",
+        RGB(70, 130, 180).paint("steel blue")
+    );
+    let file = if args.len() >= 2 {
+        args[1].clone()
+    } else {
+        "term3d_sample_obj_5.obj".to_string()
+    };
+    let input = BufReader::new(File::open(file).unwrap());
+    let enhance = 1.0;
+    let camera_zoom = 1.8 / enhance;
+    let camerashift_x = -39.0 * enhance;
+    let camerashift_y = -80.0 * enhance;
 
     let obj: Obj = load_obj(input).unwrap();
     // println!( "Vertices, {:?} items: {:?}", obj.vertices.len(), obj.vertices);
@@ -167,8 +180,8 @@ fn main() {
     }
 
     let display = Display {
-        xdim: 200 * 4,
-        ydim: 200 * 4,
+        xdim: 180 * enhance as usize,
+        ydim: 70 * enhance as usize,
     };
     // TODO: rotate world or camera
     println!("Number of triangles: {}", &tris.len());
@@ -185,14 +198,29 @@ fn main() {
 
                 if let Some(z_and_value) = tri_interpolate(&tri, (x, y)) {
                     if zbuffer_pixel.z < z_and_value.z {
-                        *zbuffer_pixel = z_and_value
+                        *zbuffer_pixel = z_and_value.clone();
                     }
                 }
             }
         }
     }
     // display the data
-    write_to_ppm(display, zbuffer);
+    write_to_ppm(display, zbuffer.clone());
+
+    for zbuffer_line in zbuffer.iter_mut() {
+        for zbuffer_pixel in zbuffer_line.iter_mut() {
+            print!(
+                "{}",
+                RGB(
+                    (zbuffer_pixel.value[0] * 256.0) as u8,
+                    (zbuffer_pixel.value[1] * 256.0) as u8,
+                    (zbuffer_pixel.value[2] * 256.0) as u8,
+                )
+                .paint("█")
+            );
+        }
+        println!();
+    }
 }
 
 #[test]
