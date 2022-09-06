@@ -22,7 +22,7 @@ impl Default for Depthbuffer {
     fn default() -> Self {
         Depthbuffer {
             z: f32::NEG_INFINITY,
-            value: [0.0, 0.0, 0.0],
+            value: [1.0, 1.0, 1.0],
         }
     }
 }
@@ -35,6 +35,9 @@ struct Triangle {
 
 #[derive(Debug, Default)]
 struct Color(u8, u8, u8);
+
+static _FONTASPECTRATIO: f32 = 1.6; // terminal characters are not a wide as they are high. Ideally, this
+                                    // should be read out at the time of calculation based on the output
 
 fn clockwise(p: &[f32; 3], q: &[f32; 3], r: &[f32; 3]) -> bool {
     (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]) < 0.0
@@ -134,9 +137,9 @@ fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
             .map(|Depthbuffer { z: _, value }| {
                 format!(
                     "{} {} {}   ",
-                    (value[0] * 255.0 * 2.0) as u8,
-                    (value[1] * 255.0 * 2.0) as u8,
-                    (value[2] * 255.0 * 2.0) as u8,
+                    (value[0] * 256.0) as u8,
+                    (value[1] * 256.0) as u8,
+                    (value[2] * 256.0) as u8,
                 )
             })
             .collect::<String>();
@@ -147,7 +150,7 @@ fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
 fn main() {
     let args: Vec<String> = env::args().collect();
     println!(
-        "This is in in color: {}",
+        "This is supposed to be in color: {}",
         RGB(70, 130, 180).paint("steel blue")
     );
     let file = if args.len() >= 2 {
@@ -208,14 +211,15 @@ fn main() {
     write_to_ppm(display, zbuffer.clone());
 
     // display the data
+    let darken = 0.3; // changes the brightness of the faux-colors
     for zbuffer_line in zbuffer.iter_mut() {
         for zbuffer_pixel in zbuffer_line.iter_mut() {
             print!(
                 "{}",
                 RGB(
-                    (zbuffer_pixel.value[0] * 256.0) as u8,
-                    (zbuffer_pixel.value[1] * 256.0) as u8,
-                    (zbuffer_pixel.value[2] * 256.0) as u8,
+                    ((1.0 - zbuffer_pixel.value[0]) * 256.0 * darken) as u8,
+                    ((1.0 - zbuffer_pixel.value[1]) * 256.0 * darken) as u8,
+                    ((1.0 - zbuffer_pixel.value[2]) * 256.0 * darken) as u8,
                 )
                 .paint("█")
             );
