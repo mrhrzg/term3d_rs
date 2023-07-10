@@ -36,7 +36,7 @@ struct Triangle {
 #[derive(Debug, Default)]
 struct Color(u8, u8, u8);
 
-static FONTASPECTRATIO: f32 = 1.6; // terminal characters are not a wide as they are high. Ideally, this
+static FONTASPECTRATIO: f32 = 1.9; // terminal characters are not a wide as they are high. Ideally, this
                                    // should be read out at the time of calculation based on the output
 
 fn clockwise(p: &[f32; 3], q: &[f32; 3], r: &[f32; 3]) -> bool {
