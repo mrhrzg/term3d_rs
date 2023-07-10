@@ -1,4 +1,4 @@
-use obj::{load_obj, Obj};
+use obj::{load_obj, Obj, Vertex};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
@@ -36,8 +36,8 @@ struct Triangle {
 #[derive(Debug, Default)]
 struct Color(u8, u8, u8);
 
-static _FONTASPECTRATIO: f32 = 1.6; // terminal characters are not a wide as they are high. Ideally, this
-                                    // should be read out at the time of calculation based on the output
+static FONTASPECTRATIO: f32 = 1.6; // terminal characters are not a wide as they are high. Ideally, this
+                                   // should be read out at the time of calculation based on the output
 
 fn clockwise(p: &[f32; 3], q: &[f32; 3], r: &[f32; 3]) -> bool {
     (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]) < 0.0
@@ -147,14 +147,37 @@ fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
     }
 }
 
+fn print_to_screen(mut zbuffer: Vec<Vec<Depthbuffer>>) {
+    let darken = 0.4; // changes the brightness of the faux-colors
+    for zbuffer_line in zbuffer.iter_mut() {
+        for zbuffer_pixel in zbuffer_line.iter_mut() {
+            print!(
+                "{}",
+                RGB(
+                    ((1.0 - zbuffer_pixel.value[0]) * 256.0 * darken) as u8,
+                    ((1.0 - zbuffer_pixel.value[1]) * 256.0 * darken) as u8,
+                    ((1.0 - zbuffer_pixel.value[2]) * 256.0 * darken) as u8,
+                )
+                .paint("█")
+            );
+        }
+        println!();
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     println!(
         "This is supposed to be in color: {}",
         RGB(70, 130, 180).paint("steel blue")
     );
-    let file = if args.len() >= 2 {
-        args[1].clone()
+    let to_file = if args.len() >= 2 {
+        args[1].clone() == "to_file"
+    } else {
+        false
+    };
+    let file = if args.len() >= 3 {
+        args[2].clone()
     } else {
         "term3d_sample_obj_5.obj".to_string()
     };
@@ -164,7 +187,7 @@ fn main() {
     let camerashift_x = -39.0 * enhance;
     let camerashift_y = -80.0 * enhance;
 
-    let obj: Obj = load_obj(input).unwrap();
+    let obj: Obj<Vertex, u64> = load_obj(input).unwrap();
     // println!( "Vertices, {:?} items: {:?}", obj.vertices.len(), obj.vertices);
 
     let mut tris = Vec::new();
@@ -190,13 +213,15 @@ fn main() {
     println!("Number of triangles: {}", &tris.len());
     // position camera. Currently the camera is fixed to the x-y plane. One can move it in
     // the x-y plane and map the pixels to a larger or smaller region of worldspace.
-    println!("{:?}", tris[0]);
+    // println!("{:?}", tris[0]);
+
+    let aspectratio = if to_file { 1.0 } else { FONTASPECTRATIO };
 
     let mut zbuffer = vec![vec![Depthbuffer::default(); display.xdim]; display.ydim];
     for tri in tris {
         for (x_pix, zbuffer_line) in zbuffer.iter_mut().enumerate() {
             for (y_pix, zbuffer_pixel) in zbuffer_line.iter_mut().enumerate() {
-                let x = (x_pix as f32 + camerashift_x) * camera_zoom;
+                let x = (x_pix as f32 + camerashift_x) * camera_zoom * aspectratio;
                 let y = (y_pix as f32 + camerashift_y) * camera_zoom;
 
                 if let Some(z_and_value) = tri_interpolate(&tri, (x, y)) {
@@ -207,24 +232,13 @@ fn main() {
             }
         }
     }
-    // write the data to file
-    write_to_ppm(display, zbuffer.clone());
 
-    // display the data
-    let darken = 0.3; // changes the brightness of the faux-colors
-    for zbuffer_line in zbuffer.iter_mut() {
-        for zbuffer_pixel in zbuffer_line.iter_mut() {
-            print!(
-                "{}",
-                RGB(
-                    ((1.0 - zbuffer_pixel.value[0]) * 256.0 * darken) as u8,
-                    ((1.0 - zbuffer_pixel.value[1]) * 256.0 * darken) as u8,
-                    ((1.0 - zbuffer_pixel.value[2]) * 256.0 * darken) as u8,
-                )
-                .paint("█")
-            );
-        }
-        println!();
+    if to_file {
+        // write the data to file
+        write_to_ppm(display, zbuffer.clone());
+    } else {
+        // display the data
+        print_to_screen(zbuffer);
     }
 }
 
