@@ -19,7 +19,7 @@ Currently also writes into a PPM file. Example output:
 
 ## Why
 
-This is intended to provide previews of 3D files in the terminal. Having the wonderful `https://github.com/junegunn/fzf` call term3d_rs encapulates the use case quite nicely:
+This is intended to provide previews of 3D files in the terminal. Having the wonderful [fzf](https://github.com/junegunn/fzf) call term3d_rs encapulates the use case quite nicely:
 ```bash
 fzf --preview 'cargo run --release  0 {}' --preview-window=right,80%
 ```
