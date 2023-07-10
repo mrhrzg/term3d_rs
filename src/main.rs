@@ -5,6 +5,7 @@ use std::io::BufReader;
 use std::io::Write;
 //use tui;
 use ansi_term::Colour::RGB;
+use std::time::Instant;
 
 #[derive(Debug)]
 struct Display {
@@ -166,11 +167,8 @@ fn print_to_screen(mut zbuffer: Vec<Vec<Depthbuffer>>) {
 }
 
 fn main() {
+    let now = Instant::now();
     let args: Vec<String> = env::args().collect();
-    println!(
-        "This is supposed to be in color: {}",
-        RGB(70, 130, 180).paint("steel blue")
-    );
     let to_file = if args.len() >= 2 {
         args[1].clone() == "to_file"
     } else {
@@ -181,6 +179,10 @@ fn main() {
     } else {
         "term3d_sample_obj_5.obj".to_string()
     };
+    println!(
+        "Previewing 3D file {}",
+        RGB(70, 130, 180).paint(file.clone())
+    );
     let input = BufReader::new(File::open(file).unwrap());
     let enhance = 1.0;
     let camera_zoom = 1.8 / enhance;
@@ -218,7 +220,7 @@ fn main() {
     let aspectratio = if to_file { 1.0 } else { FONTASPECTRATIO };
 
     let mut zbuffer = vec![vec![Depthbuffer::default(); display.xdim]; display.ydim];
-    for tri in tris {
+    for tri in &tris {
         for (x_pix, zbuffer_line) in zbuffer.iter_mut().enumerate() {
             for (y_pix, zbuffer_pixel) in zbuffer_line.iter_mut().enumerate() {
                 let x = (x_pix as f32 + camerashift_x) * camera_zoom * aspectratio;
@@ -240,6 +242,9 @@ fn main() {
         // display the data
         print_to_screen(zbuffer);
     }
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
+    println!("time per triangle: {:.2?}", elapsed / tris.len() as u32);
 }
 
 #[test]

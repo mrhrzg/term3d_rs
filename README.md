@@ -17,6 +17,13 @@ The aspect ratio of the terminal characters are not taken into account. This is 
 Currently also writes into a PPM file. Example output:
 ![3D models will be rendered with only gemetry taken into account](term3d_screenshot.jpg "Screenshot of output of term3d in PPM file (above) and the 3D editor blender (below)")
 
+## Why
+
+This is intended to provide previews of 3D files in the terminal. Having the wonderful `https://github.com/junegunn/fzf` call term3d_rs encapulates the use case quite nicely:
+```bash
+fzf --preview 'cargo run --release  0 {}' --preview-window=right,80%
+```
+![Term3d_rs in action in fzf](term3d_rs_in_fzf.jpg "preview field of fzf showing the term3D rendering")
 
 ## To export from blender as OBJ use these settings
 
