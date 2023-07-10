@@ -12,7 +12,7 @@ The idea is to have a representation of the gemometry of a 3D model in the termi
 
 ## Status
 
-The aspect ratio of the terminal characters are not taken into account. This gives the output the wrong aspect ratio.
+The aspect ratio of the terminal characters are not taken into account. This is currently set in code.
 
 Currently also writes into a PPM file. Example output:
 ![3D models will be rendered with only gemetry taken into account](term3d_screenshot.jpg "Screenshot of output of term3d in PPM file (above) and the 3D editor blender (below)")
