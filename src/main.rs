@@ -3,9 +3,11 @@ use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Write;
+use std::ops::Sub;
 //use tui;
 use ansi_term::Colour::RGB;
 use std::time::Instant;
+
 
 #[derive(Debug)]
 struct Display {
@@ -28,10 +30,57 @@ impl Default for Depthbuffer {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct V3d {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+impl V3d {
+
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        V3d{x,y,z}
+    }
+
+    // x points up in the weird Obj definition
+    pub fn rotate_around_x(self, theta: f32) -> Self {
+        let sin_t = theta.sin();
+        let cos_t = theta.cos();
+        Self::new(self.x, self.y * cos_t - self.z * sin_t, self.y * sin_t + self.z * cos_t)
+    }
+
+    pub fn abs(&self) -> f32 {
+        (self.x.powi(2) + self.y.powi(2) +self.z.powi(2)).sqrt()
+    }
+
+}
+
+impl Sub for V3d {
+    type Output = V3d;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::new(self.x-rhs.x, self.y-rhs.y, self.z-rhs.z)
+    }
+}
+
 #[derive(Debug)]
 struct Triangle {
-    vertices: Vec<[f32; 3]>,
-    normals: Vec<[f32; 3]>,
+    vertices: Vec<V3d>,
+    normals: Vec<V3d>,
+}
+
+impl Triangle {
+    pub fn new(vertices: Vec<V3d>, normals: Vec<V3d>) -> Self {
+        Self {vertices, normals}
+    }
+
+    pub fn rotate_x(&self, theta: f32) -> Self {
+        Self::new(
+            self.vertices.iter().map(|p| p.rotate_around_x(theta)).collect(),
+            self.normals.iter().map(|p| p.rotate_around_x(theta)).collect()
+        )
+    }
 }
 
 #[derive(Debug, Default)]
@@ -40,12 +89,12 @@ struct Color(u8, u8, u8);
 static FONTASPECTRATIO: f32 = 1.9; // terminal characters are not a wide as they are high. Ideally, this
                                    // should be read out at the time of calculation based on the output
 
-fn clockwise(p: &[f32; 3], q: &[f32; 3], r: &[f32; 3]) -> bool {
-    (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]) < 0.0
+fn clockwise(p: &V3d, q: &V3d, r: &V3d) -> bool {
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x) < 0.0
 }
 
 fn pixel_in_triangle(tri: &Triangle, pixel: (f32, f32)) -> bool {
-    let a = &[pixel.0, pixel.1, 0.0];
+    let a = &V3d::new(pixel.0, pixel.1, 0.0);
     if let [p, q, r] = &tri.vertices[..] {
         let orientation = clockwise(p, q, r);
 
@@ -53,18 +102,18 @@ fn pixel_in_triangle(tri: &Triangle, pixel: (f32, f32)) -> bool {
             && clockwise(q, r, a) == orientation
             && clockwise(r, p, a) == orientation
     } else {
-        panic!("not a complet set of three vertices for a triangle. should not happend.");
+        panic!("not a complete set of three vertices for a triangle. should not occur.");
     }
 }
 
 fn barymetric(tri: &Triangle, pixel: (f32, f32)) -> Vec<f32> {
     let (x, y) = pixel;
-    let x1 = tri.vertices[0][0];
-    let y1 = tri.vertices[0][1];
-    let x2 = tri.vertices[1][0];
-    let y2 = tri.vertices[1][1];
-    let x3 = tri.vertices[2][0];
-    let y3 = tri.vertices[2][1];
+    let x1 = tri.vertices[0].x;
+    let y1 = tri.vertices[0].y;
+    let x2 = tri.vertices[1].x;
+    let y2 = tri.vertices[1].y;
+    let x3 = tri.vertices[2].x;
+    let y3 = tri.vertices[2].y;
     let lambda1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3))
         / ((y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3));
     let lambda2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3))
@@ -85,25 +134,25 @@ fn tri_interpolate(tri: &Triangle, pixel: (f32, f32)) -> Option<Depthbuffer> {
         let distance = lambdas
             .iter()
             .zip(tri.vertices.iter())
-            .map(|(l, v)| l * v[2])
+            .map(|(l, v)| l * v.z)
             .sum::<f32>()
             / 3.0;
         let nx = lambdas
             .iter()
             .zip(tri.normals.iter())
-            .map(|(l, n)| l * n[0])
+            .map(|(l, n)| l * n.x)
             .sum::<f32>()
             / 3_f32;
         let ny = lambdas
             .iter()
             .zip(tri.normals.iter())
-            .map(|(l, n)| l * n[1])
+            .map(|(l, n)| l * n.y)
             .sum::<f32>()
             / 3_f32;
         let nz = lambdas
             .iter()
             .zip(tri.normals.iter())
-            .map(|(l, n)| l * n[2])
+            .map(|(l, n)| l * n.z)
             .sum::<f32>()
             / 3_f32;
         /*
@@ -121,7 +170,7 @@ fn tri_interpolate(tri: &Triangle, pixel: (f32, f32)) -> Option<Depthbuffer> {
     }
 }
 
-fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
+fn write_to_ppm(display: &Display, zbuffer: &Vec<Vec<Depthbuffer>>) {
     // https://en.m.wikipedia.org/wiki/Netpbm
     let mut file = File::create("sample_output.ppm").unwrap();
     writeln!(&mut file, "P3").unwrap();
@@ -148,7 +197,7 @@ fn write_to_ppm(display: Display, zbuffer: Vec<Vec<Depthbuffer>>) {
     }
 }
 
-fn print_to_screen(mut zbuffer: Vec<Vec<Depthbuffer>>) {
+fn print_to_screen(zbuffer: &mut [Vec<Depthbuffer>]) {
     let darken = 0.4; // changes the brightness of the faux-colors
     for zbuffer_line in zbuffer.iter_mut() {
         for zbuffer_pixel in zbuffer_line.iter_mut() {
@@ -198,11 +247,13 @@ fn main() {
             vertices: ijk
                 .iter()
                 .map(|i| obj.vertices[*i as usize].position)
-                .collect::<Vec<[f32; 3]>>(),
+                .map(|v| V3d::new(v[0], v[1], v[2]))
+                .collect::<Vec<V3d>>(),
             normals: ijk
                 .iter()
                 .map(|i| obj.vertices[*i as usize].normal)
-                .collect::<Vec<[f32; 3]>>(),
+                .map(|v| V3d::new(v[0], v[1], v[2]))
+                .collect::<Vec<V3d>>(),
         };
         tris.push(t);
     }
@@ -219,56 +270,86 @@ fn main() {
 
     let aspectratio = if to_file { 1.0 } else { FONTASPECTRATIO };
 
-    let mut zbuffer = vec![vec![Depthbuffer::default(); display.xdim]; display.ydim];
-    for tri in &tris {
-        for (x_pix, zbuffer_line) in zbuffer.iter_mut().enumerate() {
-            for (y_pix, zbuffer_pixel) in zbuffer_line.iter_mut().enumerate() {
-                let x = (x_pix as f32 + camerashift_x) * camera_zoom * aspectratio;
-                let y = (y_pix as f32 + camerashift_y) * camera_zoom;
 
-                if let Some(z_and_value) = tri_interpolate(&tri, (x, y)) {
-                    if zbuffer_pixel.z < z_and_value.z {
-                        *zbuffer_pixel = z_and_value.clone();
+    for frame in 1..60 {
+        let mut zbuffer = vec![vec![Depthbuffer::default(); display.xdim]; display.ydim];
+        let angle = 0.1 * frame as f32;
+        for tri in &tris {
+            let tri = tri.rotate_x(angle);
+            for (x_pix, zbuffer_line) in zbuffer.iter_mut().enumerate() {
+                for (y_pix, zbuffer_pixel) in zbuffer_line.iter_mut().enumerate() {
+                    let x = (x_pix as f32 + camerashift_x) * camera_zoom * aspectratio;
+                    let y = (y_pix as f32 + camerashift_y) * camera_zoom;
+
+                    if let Some(z_and_value) = tri_interpolate(&tri, (x, y)) {
+                        if zbuffer_pixel.z < z_and_value.z {
+                            *zbuffer_pixel = z_and_value.clone();
+                        }
                     }
                 }
             }
         }
-    }
 
-    if to_file {
-        // write the data to file
-        write_to_ppm(display, zbuffer.clone());
-    } else {
-        // display the data
-        print_to_screen(zbuffer);
+        if to_file {
+            // write the data to file
+            write_to_ppm(&display, &zbuffer.clone());
+        } else {
+            // display the data
+            print!("{}[2J", 27 as char); // clear screen
+            print_to_screen(&mut zbuffer);
+
+        }
+        let elapsed = now.elapsed();
+        println!("Elapsed: {:.2?}", elapsed);
+        println!("time per triangle: {:.2?}", elapsed / tris.len() as u32);
     }
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
-    println!("time per triangle: {:.2?}", elapsed / tris.len() as u32);
 }
 
-#[test]
-fn test_pixel_in_triangle() {
-    assert!(pixel_in_triangle(
-        &Triangle {
-            vertices: vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]],
-            normals: vec![[0.0; 3]; 3],
-        },
-        (0.25, 0.25),
-    ));
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_approx_eq::assert_approx_eq;
+    #[test]
+    fn test_pixel_in_triangle() {
+        assert!(pixel_in_triangle(
+            &Triangle {
+                vertices: vec![V3d::new(1.0, 0.0, 0.0), V3d::new(0.0, 1.0, 0.0), V3d::new(0.0, 0.0, 1.0)],
+                normals: vec![V3d::new(0.0, 0.0, 0.0); 3],
+            },
+            (0.25, 0.25),
+        ));
+    }
 
-#[test]
-fn test_clockwise() {
-    assert!(clockwise(
-        &[2.0, 3.0, 0.0],
-        &[6.0, 7.0, 0.0],
-        &[4.0, -2.0, 0.0],
-    ));
+    #[test]
+    fn test_clockwise() {
+        assert!(clockwise(
+            &V3d::new(2.0, 3.0, 0.0),
+            &V3d::new(6.0, 7.0, 0.0),
+            &&V3d::new(4.0, -2.0, 0.0),
+        ));
 
-    assert!(!clockwise(
-        &[6.0, 7.0, 0.0],
-        &[2.0, 3.0, 0.0],
-        &[4.0, -2.0, 0.0],
-    ));
+        assert!(!clockwise(
+            &V3d::new(6.0, 7.0, 0.0),
+            &V3d::new(2.0, 3.0, 0.0),
+            &V3d::new(4.0, -2.0, 0.0),
+        ));
+    }
+
+    #[test]
+    fn test_rotation() {
+        let p1 = V3d::new(7.0, 1.0, 0.0);
+        let p1rot = p1.rotate_around_x(1.570796);
+        let expected = V3d::new(7.0, 0.0, 1.0);
+        assert_approx_eq!(p1rot, expected);
+
+        let p1 = V3d::new(7.0, -1.0, 0.0);
+        let p1rot = p1.rotate_around_x(1.570796);
+        let expected = V3d::new(7.0, 0.0, -1.0);
+        assert_approx_eq!(p1rot, expected);
+
+        let p1 = V3d::new(7.0, 1.0, -1.0);
+        let p1rot = p1.rotate_around_x(1.570796);
+        let expected = V3d::new(7.0, 1.0, 1.0);
+        assert_approx_eq!(p1rot, expected);
+    }
 }
