@@ -50,6 +50,7 @@ impl V3d {
         Self::new(self.x, self.y * cos_t - self.z * sin_t, self.y * sin_t + self.z * cos_t)
     }
 
+    #[allow(dead_code)]
     pub fn abs(&self) -> f32 {
         (self.x.powi(2) + self.y.powi(2) +self.z.powi(2)).sqrt()
     }
