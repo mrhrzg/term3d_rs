@@ -1,7 +1,7 @@
 # term3d_rs
 View 3D models in the terminal.
 
-./demo.mp4
+![Turntable demo](./demo.mp4)
 
 ```bash
 > cargo run --release [OBJ-file-name]
