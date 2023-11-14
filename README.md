@@ -2,6 +2,7 @@
 View 3D models in the terminal.
 
 ![Turntable demo](./demo.gif)
+Terminal recording done with [t-rec-rs](https://github.com/sassman/t-rec-rs)
 
 ```bash
 > cargo run --release [OBJ-file-name]
