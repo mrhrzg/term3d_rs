@@ -3,10 +3,20 @@ name = "term3dviewer"
 version = "0.1.0"
 edition = "2021"
 
+
+[lib]
+name = "term3drender"
+path = "src/lib.rs"
+
+[[bin]]
+name = "term3dview"
+path = "src/main.rs"
+
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tui = "0.18.0"
+tui = "0.19.0"
 obj-rs = "0.7"
 ansi_term = "0.12"
 assert_approx_eq = "1.1.0"
